@@ -1,0 +1,283 @@
+package cl.droid.iot.kura.protocol.zigbee4java;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
+import org.bubblecloud.zigbee.ZigBeeApi;
+import org.bubblecloud.zigbee.api.Device;
+import org.bubblecloud.zigbee.api.DeviceListener;
+import org.bubblecloud.zigbee.network.NodeListener;
+import org.bubblecloud.zigbee.network.ZigBeeEndpoint;
+import org.bubblecloud.zigbee.network.ZigBeeNode;
+import org.bubblecloud.zigbee.network.model.DiscoveryMode;
+import org.bubblecloud.zigbee.network.port.ZigBeePort;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public abstract class ZigBeeCoordinatorHandler implements NodeListener{
+	private Logger logger = LoggerFactory.getLogger(ZigBeeCoordinatorHandler.class);
+	
+	private boolean shutdown = false;
+    protected int panId = 4567;
+    protected int channelId = 15;
+
+    protected ZigBeeApi zigbeeApi = null;
+    private ZigBeePort networkInterface;
+    
+//    private ZigBeeDiscoveryService discoveryService;
+//    private ServiceRegistration<?> serviceReg;
+    
+    private Thread mainThread = null;
+    
+    protected Future<?> m_handle = null; // restartJob
+    protected ScheduledThreadPoolExecutor m_worker;
+	
+    protected void startZigBee(ZigBeePort networkInterface) {
+    	logger.debug("startZigBee");
+        this.networkInterface = networkInterface;
+
+        // Start the network. This is a scheduled task to ensure we give the coordinator
+        // some time to initialise itself!
+        startZigBeeNetwork();
+    }
+    private void startZigBeeNetwork() {
+    	logger.debug("startZigBeeNetwork");
+    	
+    	Runnable runnable = new Runnable() {
+	        @Override
+	        public void run() {
+	          logger.debug("ZigBee network starting");
+	          m_handle = null;
+	          initialiseZigBee();
+	        }
+	      };
+
+        logger.debug("Scheduling ZigBee start");
+        m_handle = m_worker.schedule(runnable, 1, TimeUnit.SECONDS);
+    }
+//    abstract void restartZigBeeNetwork();
+    protected void restartZigBeeNetwork() {
+        Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                logger.debug("ZigBee network restarting");
+                m_handle = null;
+                initialiseZigBee();
+            }
+        };
+        logger.debug("Scheduleing ZigBee restart");
+        m_handle = m_worker.schedule(runnable, 15, TimeUnit.SECONDS);
+    }
+    private void initialiseZigBee() {
+    	mainThread = Thread.currentThread();
+        logger.debug("Initialising coordinator");
+
+        final EnumSet<DiscoveryMode> discoveryModes = DiscoveryMode.ALL;
+        boolean resetNetwork = false;
+        zigbeeApi = new ZigBeeApi(networkInterface, panId, channelId, resetNetwork, discoveryModes);
+//        final File networkStateFile = new File("network.json");
+//        if (!resetNetwork && networkStateFile.exists()) {
+//            try {
+//                final String networkState = FileUtils.readFileToString(networkStateFile);
+//                zigbeeApi.deserializeNetworkState(networkState);
+//            } catch (final Exception e) {
+//                e.printStackTrace();
+//                // Fall through and just start the network without persistence
+//            }
+//        }
+//        logger.debug("pre startup");
+//        if (!zigbeeApi.startup()) {
+//        	logger.debug("ZigBee API starting up ... [FAIL]");
+//            return;
+//        } else {
+//        	logger.debug("ZigBee API starting up ... [OK]");
+//        }
+        logger.debug("post startup");
+        logger.debug("pre initializeHardware");
+        zigbeeApi.initializeHardware();
+        logger.debug("post initializeHardware");
+
+        boolean reset = false;
+        int channel = zigbeeApi.getZigBeeNetworkManager().getCurrentChannel();
+        int pan = zigbeeApi.getZigBeeNetworkManager().getCurrentPanId();
+        if (channel != channelId || pan != panId) {
+            logger.info("ZigBee current pan={}, channel={}. Network will be reset.", pan, channel);
+            reset = true;
+        }
+
+        logger.debug("pre initializeNetwork");
+        if (!zigbeeApi.initializeNetwork(reset)) {
+//            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
+//                    "Unable to start ZigBee network");
+        	
+//            if (m_handle != null) {
+//            	m_handle.cancel(true);
+//            }
+
+            // Shut down the ZigBee library
+            if (zigbeeApi != null) {
+                zigbeeApi.shutdown();
+                zigbeeApi = null;
+            }
+
+            restartZigBeeNetwork();
+
+            return;
+        }
+        logger.debug("post initializeNetwork");
+        zigbeeApi.addDeviceListener(new DeviceListener() {
+            @Override
+            public void deviceAdded(Device device) {
+                print("Device added: " + device.getEndpointId() + " (#" + device.getNetworkAddress() + ")");
+            }
+
+            @Override
+            public void deviceUpdated(Device device) {
+                print("Device updated: " + device.getEndpointId() + " (#" + device.getNetworkAddress() + ")");
+            }
+
+            @Override
+            public void deviceRemoved(Device device) {
+                print("Device removed: " + device.getEndpointId() + " (#" + device.getNetworkAddress() + ")");
+            }
+        });
+        zigbeeApi.addNodeListener(new NodeListener() {
+			@Override
+			public void nodeAdded(ZigBeeNode node) {
+                print("Node added: " + node.getIeeeAddress() + " (#" + node.getNetworkAddress() + ")");
+			}
+
+			@Override
+			public void nodeDiscovered(ZigBeeNode node) {
+                print("Node discovered: " + node.getIeeeAddress() + " (#" + node.getNetworkAddress() + ")");
+			}
+
+			@Override
+			public void nodeUpdated(ZigBeeNode node) {
+                print("Node updated: " + node.getIeeeAddress() + " (#" + node.getNetworkAddress() + ")");
+			}
+
+			@Override
+			public void nodeRemoved(ZigBeeNode node) {
+                print("Node removed: " + node.getIeeeAddress() + " (#" + node.getNetworkAddress() + ")");
+			}
+        });
+//        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                shutdown = true;
+//                try {
+//                    System.in.close();
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+//                try {
+//                    mainThread.interrupt();
+//                    mainThread.join();
+//                } catch (InterruptedException e) {
+//                    return;
+//                }
+//            }
+//        }));
+        
+//        while (!shutdown && !networkStateFile.exists() && !zigbeeApi.isInitialBrowsingComplete()) {
+//            print("Browsing network for the first time...");
+//            System.out.print('.');
+//            try {
+//                Thread.sleep(250);
+//            } catch (InterruptedException e) {
+//                break;
+//            }
+//            print("Browsing network for the first time... [OK]");
+//        }
+        print("There are " + zigbeeApi.getDevices().size() + " known devices in the network.");
+//
+        logger.debug("ZigBee console ready.");
+//        String inputLine;
+//        while (!shutdown && (inputLine = readLine()) != null) {
+//            processInputLine(zigbeeApi, inputLine);
+//        }
+
+//        logger.debug("ZigBee network [{}] started", this.thing.getUID());
+
+        final List<ZigBeeEndpoint> endpoints = new ArrayList<ZigBeeEndpoint>();
+        for (final ZigBeeNode node : zigbeeApi.getNodes()) {
+            for (final ZigBeeEndpoint endpoint : zigbeeApi.getNodeEndpoints(node)) {
+                endpoints.add(endpoint);
+            }
+        }
+        waitForNetwork();
+    }
+    protected void waitForNetwork() {
+    	logger.debug("waitForNetwork");
+//        // Start the discovery service
+//        discoveryService = new ZigBeeDiscoveryService(this);
+//        discoveryService.activate();
+//
+//        // And register it as an OSGi service
+//        serviceReg = bundleContext.registerService(DiscoveryService.class.getName(), discoveryService,
+//                new Hashtable<String, Object>());
+
+//        logger.debug("Browsing ZigBee network [{}]...", this.thing.getUID());
+//        Thread thread = new Thread() {
+//            @Override
+//            public void run() {
+//                while (!zigbeeApi.isInitialBrowsingComplete()) {
+//                    try {
+//                        Thread.sleep(250);
+//                    } catch (InterruptedException e) {
+//                        break;
+//                    }
+//                }
+//
+//                browsingComplete();
+//            }
+//        };
+
+        // Kick off the discovery
+//        thread.start();
+    }
+
+	@Override
+	public void nodeAdded(ZigBeeNode node) {
+		logger.debug("Node is added to network: {}", node.getIeeeAddress());
+		
+	}
+
+	@Override
+	public void nodeDiscovered(ZigBeeNode node) {
+        logger.debug("Node discovery complete: {}", node.getIeeeAddress());
+//        addNewNode(node);
+//
+//        serializeNode(node);
+		
+	}
+
+	@Override
+	public void nodeRemoved(ZigBeeNode node) {
+        logger.debug("Node discovery complete: {}", node.getIeeeAddress());
+        // TODO Remove the XML ??
+        // serializeNetwork();
+		
+	}
+
+	@Override
+	public void nodeUpdated(ZigBeeNode node) {
+        logger.debug("Node updated: {}", node.getIeeeAddress());
+//        serializeNode(node);
+		
+	}
+	
+    private void print(final String line) {
+//        System.out.println("\r" + line);
+        logger.debug(line);
+    }
+
+}

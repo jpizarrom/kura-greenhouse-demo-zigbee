@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MetaData xmlns="http://www.osgi.org/xmlns/metatype/v1.2.0" localization="en_us">
+  <OCD id="cl.droid.iot.kura.protocol.zigbee4java.SerialExample"
+    name="SerialExample"
+    description="Example of a Configuring KURA Application echoing data read from the serial port.">
+
+    <Icon resource="http://sphotos-a.xx.fbcdn.net/hphotos-ash4/p480x480/408247_10151040905591065_1989684710_n.jpg" size="32"/>
+
+    <AD id="serial.device"
+        name="serial.device"
+        type="String"
+        cardinality="0"
+        required="true"
+        default="/dev/ttyS4"
+        description="Name of the serial device (e.g. /dev/ttyS0, /dev/ttyACM0, /dev/ttyUSB0)."/>
+
+    <AD id="serial.baudrate"
+        name="serial.baudrate"
+        type="String"
+        cardinality="0"
+        required="true"
+        default="115200"
+        description="Baudrate.">
+        <Option label="9600" value="9600"/>
+        <Option label="19200" value="19200"/>
+        <Option label="38400" value="38400"/>
+        <Option label="57600" value="57600"/>
+        <Option label="115200" value="115200"/>
+    </AD>
+
+    <AD id="serial.data-bits"
+        name="serial.data-bits"
+        type="String"
+        cardinality="0"
+        required="true"
+        default="8"
+        description="Data bits.">
+        <Option label="7" value="7"/>
+        <Option label="8" value="8"/>
+    </AD>
+
+    <AD id="serial.parity"
+        name="serial.parity"
+        type="String"
+        cardinality="0"
+        required="true"
+        default="none"
+        description="Parity.">
+        <Option label="none" value="none"/>
+        <Option label="even" value="even"/>
+        <Option label="odd" value="odd"/>
+    </AD>
+
+    <AD id="serial.stop-bits"
+        name="serial.stop-bits"
+        type="String"
+        cardinality="0"
+        required="true"
+        default="1"
+        description="Stop bits.">
+        <Option label="1" value="1"/>
+        <Option label="2" value="2"/>
+    </AD>
+    
+    <AD id="serial.cmd"
+        name="serial.cmd"
+        type="String"
+        cardinality="0"
+        required="true"
+        default=""
+        description="Name"/>
+
+  </OCD>
+  <Designate pid="cl.droid.iot.kura.protocol.zigbee4java.SerialExample">
+    <Object ocdref="cl.droid.iot.kura.protocol.zigbee4java.SerialExample"/>
+  </Designate>
+</MetaData>

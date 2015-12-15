@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scr:component xmlns:scr="http://www.osgi.org/xmlns/scr/v1.1.0" 
+name="cl.droid.iot.kura.protocol.zigbee4java.SerialExample" activate="activate" 
+deactivate="deactivate" modified="updated" enabled="true" immediate="true" configuration-policy="require">
+
+  <implementation class="cl.droid.iot.kura.protocol.zigbee4java.SerialExample"/>
+  <property name="service.pid" type="String" value="cl.droid.iot.kura.protocol.zigbee4java.SerialExample"/>
+
+  <service>
+    <provide interface="cl.droid.iot.kura.protocol.zigbee4java.SerialExample"/>
+  </service>
+  <reference bind="setConnectionFactory" cardinality="1..1"
+    interface="org.osgi.service.io.ConnectionFactory" name="ConnectionFactory"
+    policy="static" unbind="unsetConnectionFactory" />
+</scr:component>
