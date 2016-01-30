@@ -1,0 +1,20 @@
+#Deployment Plugin Project File
+#Tue Jan 26 02:24:52 ART 2016
+build.ant.name=<.>/resources/dp/zigbee4java_build.xml
+build.dp.file=<.>/resources/dp/zigbee4java.dp
+build.location=
+bundles.0.bundle_path=<.>/.project
+bundles.0.customizer=false
+bundles.0.headers.count=0
+bundles.0.missing=false
+bundles.0.name=bundles/cl.droid.iot.kura.protocol.zigbee4java.jar
+bundles.0.symbolic_name=cl.droid.iot.kura.protocol.zigbee4java
+bundles.0.version=1.0.0.qualifier
+bundles.count=1
+certificates.count=0
+general.signbundles=false
+headers.other.headers=
+headers.symbolic.name=zigbee4java
+headers.version=1.0.0
+resources.count=0
+

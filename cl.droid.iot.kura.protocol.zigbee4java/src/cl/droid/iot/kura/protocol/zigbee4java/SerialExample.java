@@ -6,7 +6,6 @@ import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import org.bubblecloud.zigbee.ZigBeeApi;
@@ -39,8 +38,6 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
 	  private CommConnection m_commConnection;
 	  private InputStream m_commIs;
 	  private OutputStream m_commOs;
-//	  private ScheduledThreadPoolExecutor m_worker;
-//	  private Future<?> m_handle;
 	  private Map<String, Object> m_properties;
 	  
 	  private Map<String, ConsoleCommand> commands = new HashMap<String, ConsoleCommand>();
@@ -95,29 +92,40 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
 	    m_worker = new ScheduledThreadPoolExecutor(1);
 	    m_properties = new HashMap<String, Object>();
 	    dostartZigBee(properties);
-	    s_logger.info("Activating SerialExample... Done.");
 	    
 	    activateCommands();
-	    
+	    s_logger.info("Activating SerialExample... Done.");
 	  }
 
 	  protected void deactivate(ComponentContext componentContext) {
 	    s_logger.info("Deactivating SerialExample...");
 
 	    // shutting down the worker and cleaning up the properties
+
 	    s_logger.info("Deactivating m_handle...");
-	    if(m_handle!=null)
+	    if(m_handle!=null){
 	    	m_handle.cancel(true);
+	    	m_handle = null;
+	    }
 	    s_logger.info("Deactivating m_handle... Done.");
 	    
 	    s_logger.info("Deactivating zigbeeApi...");
-        if (zigbeeApi != null)
+        if (zigbeeApi != null){
             zigbeeApi.shutdown();
+            zigbeeApi = null;
+            }
         s_logger.info("Deactivating zigbeeApi... Done.");
         
+	    try {
+            Thread.sleep(250);
+        } catch (InterruptedException e) {
+        }
+
         s_logger.info("Deactivating m_worker...");
-	    if(m_worker!=null)
+	    if(m_worker!=null){
 	    	m_worker.shutdownNow();
+	    	m_worker = null;
+	    }
 	    s_logger.info("Deactivating m_worker... Done.");
 	    
 	    //close the serial port
@@ -126,10 +134,10 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
 	  }
 
 	  public void updated(Map<String,Object> properties) {
-	    s_logger.info("Updated SerialExample...");
+	    s_logger.info("Updated updated...");
 
 	    doUpdate(properties);
-	    s_logger.info("Updated SerialExample... Done.");
+	    s_logger.info("Updated updated... Done.");
 	  }
 
 	  // ----------------------------------------------------------------
@@ -142,8 +150,8 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
 	   * Called after a new set of properties has been configured on the service
 	   */
 	  private void doUpdate(Map<String, Object> properties) {
-		  s_logger.info("doUpdate");
-		    	if (properties!=null)
+		  s_logger.info("doUpdate...");
+		    	if (properties!=null){
 		    		for (String s : properties.keySet()) {
 		    			s_logger.info("Update - "+s+": "+properties.get(s));
 		    		}
@@ -152,10 +160,15 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
 		    		if(zigbeeApi!=null)
 		    		{
 		    			processInputLine(zigbeeApi, cmd);
+		    		}else{
+		    			s_logger.info("Update - zigbeeApi null");
 		    		}
 		    	}
+		   s_logger.info("doUpdate... Done.");
+	}
 	  
 	  private void dostartZigBee(Map<String, Object> properties) {
+		s_logger.info("dostartZigBee...");
 	    try {
 	    	if (properties!=null)
 	    		for (String s : properties.keySet()) {
@@ -167,33 +180,20 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
 	        m_handle.cancel(true);
 	      }
 
-	      //close the serial port so it can be reconfigured
-//	      closePort();
-
 	      //store the properties
 	      m_properties.clear();
 	      m_properties.putAll(properties);
 
-	      //reopen the port with the new configuration
-//	      openPort();
-	      
 	      startZigBee(this);
-
-//	      //start the worker thread
-//	      m_handle = m_worker.submit(new Runnable() {
-//	        @Override
-//	        public void run() {
-////	          doSerial();
-//	        }
-//	      });
 
 	    } catch (Throwable t) {
 	        s_logger.error("Unexpected Throwable", t);
 	      }
+	    s_logger.info("dostartZigBee... Done.");
 	  }
 
 	  private void openPort() {
-		  s_logger.info("openPort");
+		  s_logger.info("openPort...");
 	    String port = (String) m_properties.get(SERIAL_DEVICE_PROP_NAME);
 
 	    if (port == null) {
@@ -232,9 +232,11 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
 	      s_logger.error("Failed to open port " + port, e);
 	      cleanupPort();
 	    }
+	    s_logger.info("openPort... Done.");
 	  }
 
 	  private void cleanupPort() {
+		  s_logger.info("cleanupPort...");
 
 	    if (m_commIs != null) {
 	      try {
@@ -250,6 +252,7 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
 	    if (m_commOs != null) {
 	      try {
 	        s_logger.info("Closing port output stream...");
+	        m_commOs.flush();
 	        m_commOs.close();
 	        s_logger.info("Closed port output stream");
 	      } catch (IOException e) {
@@ -268,59 +271,20 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
 	      }
 	      m_commConnection = null;
 	    }
+	    s_logger.info("cleanupPort... Done.");
 	  }
 
-	  private void closePort() {
-	    cleanupPort();
-	  }
-
-	  private void doSerial() {
-	    if (m_commIs != null) {
-	      try {
-	        int c = -1;
-	        StringBuilder sb = new StringBuilder();
-	        while (m_commIs != null) {
-	          if (m_commIs.available() != 0) {
-	            c = m_commIs.read();
-	          } else {
-	            try {
-	              Thread.sleep(100);
-	              continue;
-	            } catch (InterruptedException e) {
-	                return;
-	            }
-	          }
-
-	        // on reception of CR, publish the received sentence
-	        if (c==13) {
-	          s_logger.debug("Received serial input, echoing to output: " + sb.toString());
-	          sb.append("\r\n");
-	          String dataRead = sb.toString();
-	          //echo the data to the output stream
-	          m_commOs.write(dataRead.getBytes());
-	          //reset the buffer
-	          sb = new StringBuilder();
-	        } else if (c!=10) {
-	          sb.append((char) c);
-	        }
-	      }
-
-	      } catch (IOException e) {
-	          s_logger.error("Cannot read port", e);
-	      } finally {
-	          try {
-	            m_commIs.close();
-	          } catch (IOException e) {
-	            s_logger.error("Cannot close buffered reader", e);
-	          }
-	      }
-	    }
+	private void closePort() {
+		  s_logger.info("closePort...");
+		  cleanupPort();
+		  s_logger.info("closePort... Done.");
 	  }
 
 	@Override
 	public void close() {
-		s_logger.debug("ZigBeePort close");
+		s_logger.debug("ZigBeePort close...");
 		this.closePort();
+		s_logger.debug("ZigBeePort close... Done.");
 		
 	}
 
@@ -336,9 +300,10 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
 
 	@Override
 	public boolean open() {
-		s_logger.debug("ZigBeePort open");
+		s_logger.debug("ZigBeePort open...");
 		try {
 			this.openPort();
+			s_logger.debug("ZigBeePort open... Done.");
 			return true;
 	    } catch (Exception e) {
 	    	s_logger.error("Error...", e);
@@ -624,7 +589,6 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
             }
             print("Output Clusters  : ");
             for (int c : device.getOutputClusters()) {
-                final Cluster cluster = device.getCluster(c);
                 print("                 : " + c + " " + ZigBeeApiConstants.getClusterName(c));
             }
 
@@ -648,9 +612,4 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
         return device;
     }
 
-//	@Override
-//	void restartZigBeeNetwork() {
-//		s_logger.debug("restartZigBeeNetwork");
-//		this.doUpdate(null);
-//	}
 }
