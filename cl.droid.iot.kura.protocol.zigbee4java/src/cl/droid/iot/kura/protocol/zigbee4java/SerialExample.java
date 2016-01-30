@@ -602,7 +602,7 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
      * @param deviceIdentifier the device identifier
      * @return
      */
-    private Device getDeviceByIndexOrEndpointId(ZigBeeApi zigbeeApi, String deviceIdentifier) {
+    protected Device getDeviceByIndexOrEndpointId(ZigBeeApi zigbeeApi, String deviceIdentifier) {
         Device device;
         try {
             device = zigbeeApi.getDevices().get(Integer.parseInt(deviceIdentifier));

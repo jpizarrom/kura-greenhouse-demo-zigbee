@@ -3,13 +3,17 @@
 name="cl.droid.iot.kura.protocol.zigbee4java.SerialExample" activate="activate" 
 deactivate="deactivate" modified="updated" enabled="true" immediate="true" configuration-policy="require">
 
-  <implementation class="cl.droid.iot.kura.protocol.zigbee4java.SerialExample"/>
+  <implementation class="cl.droid.iot.kura.protocol.zigbee4java.SimulatedGreenhouseSensorService"/>
   <property name="service.pid" type="String" value="cl.droid.iot.kura.protocol.zigbee4java.SerialExample"/>
 
   <service>
     <provide interface="cl.droid.iot.kura.protocol.zigbee4java.SerialExample"/>
+    <provide interface="org.eclipse.iot.greenhouse.sensors.SensorService"/>
   </service>
   <reference bind="setConnectionFactory" cardinality="1..1"
     interface="org.osgi.service.io.ConnectionFactory" name="ConnectionFactory"
     policy="static" unbind="unsetConnectionFactory" />
+  <reference bind="addSensorChangedListener" cardinality="0..n" 
+  interface="org.eclipse.iot.greenhouse.sensors.SensorChangedListener" name="SensorChangedListener" 
+  policy="dynamic" unbind="removeSensorChangedListener"/>
 </scr:component>
