@@ -13,6 +13,8 @@ import org.bubblecloud.zigbee.api.cluster.impl.api.core.Attribute;
 import org.bubblecloud.zigbee.api.cluster.impl.api.core.ZigBeeClusterException;
 import org.eclipse.iot.greenhouse.sensors.SensorChangedListener;
 import org.eclipse.iot.greenhouse.sensors.SensorService;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,6 +29,12 @@ public class SimulatedGreenhouseSensorService extends SerialExample implements S
 	
 	float _temperature = 20;
 	String _lightState = "on";
+	
+	protected void activateCommands(){
+		s_logger.info("Activating activateCommands...");
+		super.activateCommands();
+		s_logger.info("Activating activateCommands... Done.");
+	}
 	
 	public SimulatedGreenhouseSensorService() {
 		super();
@@ -90,24 +98,53 @@ public class SimulatedGreenhouseSensorService extends SerialExample implements S
 	@Override
 	public Object getSensorValue(String sensorName) throws NoSuchSensorOrActuatorException {
 		// TODO Auto-generated method stub
+		s_logger.info("getSensorValue "+sensorName);
 		return null;
 	}
 
 	@Override
 	public void setActuatorValue(String actuatorName, Object value) throws NoSuchSensorOrActuatorException {
 		// TODO Auto-generated method stub
+		s_logger.info("setActuatorValue "+actuatorName);
+//		JsonObject jsonObject = new JsonParser().parse("{\"name\": \"John\"}").getAsJsonObject();
+
+		if(zigbeeApi!=null && actuatorName.equals("commands"))
+		{
+			s_logger.info("Update - zigbeeApi not null");
+			
+			String cmd = null;
+			try {
+				JSONObject obj = new JSONObject((String)value);
+				s_logger.info("JSONObject "+ obj.toString());
+				cmd = obj.getJSONObject("data").getString("cmd");
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			if(cmd!=null){
+				s_logger.info("cmd = " + cmd);
+				processInputLine(zigbeeApi, cmd);
+			}else{
+				s_logger.info("Update - zigbeeApi cmd null");
+			}
+		}else{
+			s_logger.info("cmd = null");
+		}
 		
 	}
 	
 	public void addSensorChangedListener(SensorChangedListener listener) {
+		s_logger.info("addSensorChangedListener");
 		_listeners.add(listener);
 	}
 
 	public void removeSensorChangedListener(SensorChangedListener listener) {
+		s_logger.info("removeSensorChangedListener");
 		_listeners.remove(listener);
 	}
 	
 	private void notifyListeners(String sensorName, Object newValue) {
+		s_logger.info("notifyListeners");
 		for (SensorChangedListener listener : _listeners) {
 			listener.sensorChanged(sensorName, newValue);
 		}
