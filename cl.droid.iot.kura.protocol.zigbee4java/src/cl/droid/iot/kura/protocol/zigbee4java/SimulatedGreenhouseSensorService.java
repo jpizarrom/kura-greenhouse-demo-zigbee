@@ -13,8 +13,8 @@ import org.bubblecloud.zigbee.api.cluster.impl.api.core.Attribute;
 import org.bubblecloud.zigbee.api.cluster.impl.api.core.ZigBeeClusterException;
 import org.eclipse.iot.greenhouse.sensors.SensorChangedListener;
 import org.eclipse.iot.greenhouse.sensors.SensorService;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.eclipsesource.json.Json;
+import com.eclipsesource.json.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,6 +24,9 @@ public class SimulatedGreenhouseSensorService extends SerialExample implements S
 	private static final String APP_ID = "cl.droid.iot.kura.protocol.zigbee4java.SimulatedGreenhouseSensorService";
 	private ScheduledThreadPoolExecutor _scheduledThreadPoolExecutor;
 	private ScheduledFuture<?> _handle;
+	
+	private static final String GH_SCHEDULE_PROP_NAME= "gh.schedule_enabled";
+	private static final String GH_DEVICE_PROP_NAME= "gh.device";
 	
 	private List<SensorChangedListener> _listeners = new CopyOnWriteArrayList<SensorChangedListener>();
 	
@@ -45,8 +48,10 @@ public class SimulatedGreenhouseSensorService extends SerialExample implements S
 				new Runnable() {
 					@Override
 					public void run() {
-						print("run");
-						String device = "0";
+						print("run1");
+						if (m_properties.containsKey(GH_SCHEDULE_PROP_NAME) && m_properties.containsKey(GH_DEVICE_PROP_NAME) &&(Boolean) m_properties.get(GH_SCHEDULE_PROP_NAME)){
+						print("run2");	
+						String device = (String) m_properties.get(GH_DEVICE_PROP_NAME);
 						String cusler;
 						String attribute = "0";
 						String sensorName;
@@ -89,6 +94,7 @@ public class SimulatedGreenhouseSensorService extends SerialExample implements S
 			                print("Failed to process moisture.");
 			                e.printStackTrace();
 			            }
+						}
 
 					}
 				}, 0, 60000, TimeUnit.MILLISECONDS);
@@ -113,14 +119,15 @@ public class SimulatedGreenhouseSensorService extends SerialExample implements S
 			s_logger.info("Update - zigbeeApi not null");
 			
 			String cmd = null;
-			try {
-				JSONObject obj = new JSONObject((String)value);
-				s_logger.info("JSONObject "+ obj.toString());
-				cmd = obj.getJSONObject("data").getString("cmd");
-			} catch (JSONException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+//			try {
+//				JSONObject obj = new JSONObject((String)value);
+//				s_logger.info("JSONObject "+ obj.toString());
+//				cmd = obj.getJSONObject("data").getString("cmd");
+				cmd = Json.parse((String)value).asObject().get("data").asObject().getString("cmd", null);
+//			} catch (JSONException e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}
 			if(cmd!=null){
 				s_logger.info("cmd = " + cmd);
 				processInputLine(zigbeeApi, cmd);
@@ -143,7 +150,7 @@ public class SimulatedGreenhouseSensorService extends SerialExample implements S
 		_listeners.remove(listener);
 	}
 	
-	private void notifyListeners(String sensorName, Object newValue) {
+	protected void notifyListeners(String sensorName, Object newValue) {
 		s_logger.info("notifyListeners");
 		for (SensorChangedListener listener : _listeners) {
 			listener.sensorChanged(sensorName, newValue);
@@ -153,98 +160,5 @@ public class SimulatedGreenhouseSensorService extends SerialExample implements S
     private void print(final String line) {
     	s_logger.debug(line);
   }
-	
-    /**
-     * Interface for console commands.
-     */
-    private interface ConsoleCommand {
-        /**
-         * Get command description.
-         * @return the command description
-         */
-        String getDescription();
-
-        /**
-         * Get command syntax.
-         * @return the command syntax
-         */
-        String getSyntax();
-
-        /**
-         *
-         * @param zigbeeApi
-         * @param args
-         * @return
-         */
-        boolean process(final ZigBeeApi zigbeeApi, final String[] args);
-    }
-    
-    /**
-     * Reads an attribute from a device.
-     */
-    private class ReadCommand implements ConsoleCommand {
-        /**
-         * {@inheritDoc}
-         */
-        public String getDescription() {
-            return "Read an attribute.";
-        }
-        /**
-         * {@inheritDoc}
-         */
-        public String getSyntax() {
-            return "read [DEVICE] [CLUSTER] [ATTRIBUTE]";
-        }
-        /**
-         * {@inheritDoc}
-         */
-        public boolean process(final ZigBeeApi zigbeeApi, final String[] args) {
-            if (args.length != 5) {
-                return false;
-            }
-
-            final int clusterId;
-            try {
-                clusterId = Integer.parseInt(args[2]);
-            } catch (final NumberFormatException e) {
-                return false;
-            }
-            final int attributeId;
-            try {
-                attributeId = Integer.parseInt(args[3]);
-            } catch (final NumberFormatException e) {
-                return false;
-            }
-
-            final Device device = getDeviceByIndexOrEndpointId(zigbeeApi, args[1]);
-            if (device == null) {
-                print("Device not found.");
-                return false;
-            }
-
-            final Cluster cluster = device.getCluster(clusterId);
-            if (cluster == null) {
-                print("Cluster not found.");
-                return false;
-            }
-
-            final Attribute attribute = cluster.getAttribute(attributeId);
-            if (attribute == null) {
-                print("Attribute not found.");
-                return false;
-            }
-
-            try {
-                print(attribute.getName() + "=" + attribute.getValue());
-                notifyListeners(args[4], attribute.getValue());
-                
-            } catch (ZigBeeClusterException e) {
-                print("Failed to read attribute.");
-                e.printStackTrace();
-            }
-
-            return true;
-        }
-    }
 
 }

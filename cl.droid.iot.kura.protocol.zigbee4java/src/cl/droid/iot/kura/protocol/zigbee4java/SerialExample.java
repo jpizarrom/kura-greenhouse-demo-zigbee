@@ -15,7 +15,10 @@ import org.bubblecloud.zigbee.api.ZigBeeDeviceException;
 import org.bubblecloud.zigbee.api.cluster.Cluster;
 import org.bubblecloud.zigbee.api.cluster.general.OnOff;
 import org.bubblecloud.zigbee.api.cluster.impl.api.core.Attribute;
-import org.bubblecloud.zigbee.network.port.ZigBeePort;
+import org.bubblecloud.zigbee.api.cluster.impl.api.core.ZigBeeClusterException;
+//import org.bubblecloud.zigbee.network.port.ZigBeePort;
+import org.bubblecloud.zigbee.network.port.SerialPortImpl;
+import org.bubblecloud.zigbee.v3.SerialPort;
 import org.eclipse.kura.comm.CommConnection;
 import org.eclipse.kura.comm.CommURI;
 import org.eclipse.kura.configuration.ConfigurableComponent;
@@ -24,7 +27,9 @@ import org.osgi.service.io.ConnectionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SerialExample extends ZigBeeCoordinatorHandler implements ConfigurableComponent, ZigBeePort {
+import cl.droid.iot.kura.protocol.zigbee4java.SerialExample.ConsoleCommand;
+
+public class SerialExample extends ZigBeeCoordinatorHandler implements ConfigurableComponent {
 	private static final Logger s_logger = LoggerFactory.getLogger(SerialExample.class);
 
 	  private static final String SERIAL_DEVICE_PROP_NAME= "serial.device";
@@ -38,9 +43,9 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
 	  private CommConnection m_commConnection;
 	  private InputStream m_commIs;
 	  private OutputStream m_commOs;
-	  private Map<String, Object> m_properties;
+	  protected Map<String, Object> m_properties;
 	  
-	  private Map<String, ConsoleCommand> commands = new HashMap<String, ConsoleCommand>();
+	  protected Map<String, ConsoleCommand> commands = new HashMap<String, ConsoleCommand>();
 
 	  // ----------------------------------------------------------------
 	  //
@@ -78,7 +83,7 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
 //			commands.put("unlisten",    new UnlistenCommand());
 //			commands.put("subscribe", 	new SubscribeCommand());
 //			commands.put("unsubscribe", new UnsubscribeCommand());
-//			commands.put("read", 		new ReadCommand());
+			commands.put("read", 		new ReadCommand());
 //			commands.put("write", 		new WriteCommand());
 			commands.put("join",        new JoinCommand());
 //			commands.put("lqi", 		new LqiCommand());
@@ -179,12 +184,20 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
 	      if (m_handle != null) {
 	        m_handle.cancel(true);
 	      }
+	      
+//	      //close the serial port so it can be reconfigured
+//	      closePort();
 
 	      //store the properties
 	      m_properties.clear();
 	      m_properties.putAll(properties);
 
-	      startZigBee(this);
+//	      //reopen the port with the new configuration
+//	      openPort();
+	      
+//	      TODO
+	      final SerialPort serialPort = new SerialPortImpl();
+	      startZigBee(serialPort);
 
 	    } catch (Throwable t) {
 	        s_logger.error("Unexpected Throwable", t);
@@ -280,7 +293,6 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
 		  s_logger.info("closePort... Done.");
 	  }
 
-	@Override
 	public void close() {
 		s_logger.debug("ZigBeePort close...");
 		this.closePort();
@@ -288,17 +300,14 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
 		
 	}
 
-	@Override
 	public InputStream getInputStream() {
 		return m_commIs;
 	}
 
-	@Override
 	public OutputStream getOutputStream() {
 		return m_commOs;
 	}
 
-	@Override
 	public boolean open() {
 		s_logger.debug("ZigBeePort open...");
 		try {
@@ -313,7 +322,7 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
     /**
      * Interface for console commands.
      */
-    private interface ConsoleCommand {
+    protected interface ConsoleCommand {
         /**
          * Get command description.
          * @return the command description
@@ -382,7 +391,8 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
     	s_logger.debug(line);
   }
     
-    private void processInputLine(final ZigBeeApi zigbeeApi, final String inputLine) {
+    protected void processInputLine(final ZigBeeApi zigbeeApi, final String inputLine) {
+    	s_logger.info("processInputLine - "+inputLine);
         if (inputLine.length() == 0) {
             return;
         }
@@ -595,6 +605,75 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
             return true;
         }
     }
+
+    
+    /**
+     * Reads an attribute from a device.
+     */
+    protected class ReadCommand implements ConsoleCommand {
+        /**
+         * {@inheritDoc}
+         */
+        public String getDescription() {
+            return "Read an attribute.";
+        }
+        /**
+         * {@inheritDoc}
+         */
+        public String getSyntax() {
+            return "read [DEVICE] [CLUSTER] [ATTRIBUTE]";
+        }
+        /**
+         * {@inheritDoc}
+         */
+        public boolean process(final ZigBeeApi zigbeeApi, final String[] args) {
+            if (args.length != 4) {
+                return false;
+            }
+
+            final int clusterId;
+            try {
+                clusterId = Integer.parseInt(args[2]);
+            } catch (final NumberFormatException e) {
+                return false;
+            }
+            final int attributeId;
+            try {
+                attributeId = Integer.parseInt(args[3]);
+            } catch (final NumberFormatException e) {
+                return false;
+            }
+
+            final Device device = getDeviceByIndexOrEndpointId(zigbeeApi, args[1]);
+            if (device == null) {
+                print("Device not found.");
+                return false;
+            }
+
+            final Cluster cluster = device.getCluster(clusterId);
+            if (cluster == null) {
+                print("Cluster not found.");
+                return false;
+            }
+
+            final Attribute attribute = cluster.getAttribute(attributeId);
+            if (attribute == null) {
+                print("Attribute not found.");
+                return false;
+            }
+
+            try {
+                print(attribute.getName() + "=" + attribute.getValue());
+//                notifyListeners(args[4], attribute.getValue());
+                
+            } catch (ZigBeeClusterException e) {
+                print("Failed to read attribute.");
+                e.printStackTrace();
+            }
+
+            return true;
+        }
+    }
     
     /**
      * Gets device from ZigBee API either with index or endpoint ID
@@ -610,6 +689,34 @@ public class SerialExample extends ZigBeeCoordinatorHandler implements Configura
             device = zigbeeApi.getDevice(deviceIdentifier);
         }
         return device;
+    }
+    
+    protected void notifyListeners(String sensorName, Object newValue) {
+		s_logger.info("notifyListeners");
+	}
+    public class SerialPortImpl implements SerialPort{
+
+		@Override
+		public void close() {
+			SerialExample.this.close();
+			
+		}
+
+		@Override
+		public InputStream getInputStream() {
+			return m_commIs;
+		}
+
+		@Override
+		public OutputStream getOutputStream() {
+			return m_commOs;
+		}
+
+		@Override
+		public boolean open() {
+			return SerialExample.this.open();
+		}
+    	
     }
 
 }

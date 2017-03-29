@@ -2,7 +2,9 @@ package cl.droid.iot.kura.protocol.zigbee4java;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -14,25 +16,26 @@ import org.bubblecloud.zigbee.network.NodeListener;
 import org.bubblecloud.zigbee.network.ZigBeeEndpoint;
 import org.bubblecloud.zigbee.network.ZigBeeNode;
 import org.bubblecloud.zigbee.network.model.DiscoveryMode;
-import org.bubblecloud.zigbee.network.port.ZigBeePort;
+//import org.bubblecloud.zigbee.network.port.ZigBeePort;
+import org.bubblecloud.zigbee.v3.SerialPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public abstract class ZigBeeCoordinatorHandler{
 	private Logger logger = LoggerFactory.getLogger(ZigBeeCoordinatorHandler.class);
 	
-    protected int panId = 4568;
+    protected int panId = 4570;
     protected int channelId = 15;
 
     protected ZigBeeApi zigbeeApi = null;
-    protected ZigBeePort networkInterface;
+    protected SerialPort networkInterface;
     
     private Thread mainThread = null;
     
     protected Future<?> m_handle = null; // restartJob
     protected ScheduledThreadPoolExecutor m_worker;
 	
-    protected void startZigBee(ZigBeePort networkInterface) {
+    protected void startZigBee(SerialPort networkInterface) {
     	logger.debug("startZigBee...");
         this.networkInterface = networkInterface;
 
@@ -76,9 +79,11 @@ public abstract class ZigBeeCoordinatorHandler{
     	logger.debug("initialiseZigBee...");
     	mainThread = Thread.currentThread();
 
-        final EnumSet<DiscoveryMode> discoveryModes = DiscoveryMode.ALL;
+        final Set<DiscoveryMode> discoveryModes = new HashSet<DiscoveryMode>();
+        discoveryModes.add(DiscoveryMode.Addressing);
+        discoveryModes.add(DiscoveryMode.Announce);
         boolean resetNetwork = false;
-        zigbeeApi = new ZigBeeApi(networkInterface, panId, channelId, resetNetwork, discoveryModes);
+        zigbeeApi = new ZigBeeApi(networkInterface, panId, channelId, null, resetNetwork, discoveryModes);
 
         logger.debug("post startup");
         logger.debug("pre initializeHardware");

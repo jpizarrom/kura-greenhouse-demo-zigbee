@@ -66,8 +66,24 @@
         name="serial.cmd"
         type="String"
         cardinality="0"
-        required="true"
+        required="false"
         default=""
+        description="Name"/>
+
+	<AD id="gh.schedule_enabled"
+        name="gh.schedule_enabled"
+        type="Boolean"
+        cardinality="0"
+        required="true"
+        default="false"
+        description=""/>
+
+    <AD id="gh.device"
+        name="gh.device"
+        type="String"
+        cardinality="0"
+        required="true"
+        default="0"
         description="Name"/>
 
   </OCD>
